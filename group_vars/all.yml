@@ -1,0 +1,7 @@
+all:
+  nios_provider:
+    host: grid-master.demo.com
+    username: cloudadmin
+    password: pwd
+    wapi_version: '2.12'
+    validate_certs: no

@@ -1,0 +1,29 @@
+---
+- hosts: nios
+  name: Free up ISCSI IPs in Infoblox
+  vars:
+    iscsi_ip_c_class_range1: "192.168.10.0/24"
+    iscsi_ip_c_class_range2: "192.168.11.0/24"  
+  tasks:
+    - name: "create network view"
+      connection: local
+      ansible.builtin.set_fact:
+        host_vm: 'leaf01.ansible.com'
+        ip1: "{{ lookup('infoblox.nios_modules.nios', 'record:host', filter={'name': host_vm}, provider=nios_provider)[0].ipv4addrs[0].ipv4addr }}"
+        ip2: "{{ lookup('infoblox.nios_modules.nios', 'record:host', filter={'name': host_vm}, provider=nios_provider)[0].ipv4addrs[1].ipv4addr }}"
+        provider: "{{ nios_provider }}"
+
+    - name: display IP
+      ansible.builtin.debug:
+        msg: "Following IPs will be removed from DNS for host {{ host_vm }}: {{ ip1 }} and {{ ip2 }}"
+
+    - name: "Remove host record from DNS"
+      connection: local
+      infoblox.nios_modules.nios_host_record: 
+        name: "{{ vm_hostname }}"
+        ipv4:
+          - address: "{{ ip1 }}"
+          - address: "{{ ip2 }}"
+        ttl: 3600
+        state: absent
+        provider: "{{ nios_provider }}"

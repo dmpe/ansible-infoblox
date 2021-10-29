@@ -1,0 +1,46 @@
+---
+- hosts: nios
+  name: Assign IP addresses to VMs, with Infoblox
+  vars:
+    iscsi_ip_c_class_range1: "192.168.10.0/24"
+    iscsi_ip_c_class_range2: "192.168.11.0/24"  
+  tasks:
+    - name: "create network view"
+      connection: local
+      ansible.builtin.set_fact:
+        ip1: "{{ lookup('infoblox.nios_modules.nios_next_ip', vars.iscsi_ip_c_class_range1, provider=nios_provider) }}"
+        ip2: "{{ lookup('infoblox.nios_modules.nios_next_ip', vars.iscsi_ip_c_class_range2, provider=nios_provider) }}"
+        provider: "{{ nios_provider }}"
+    
+    - name: display IP
+      ansible.builtin.debug:
+        msg: "Following IPs will be assigned: {{ ip1 }} and {{ ip2 }}"
+
+    - name: "Register IP with DNS name"
+      connection: local
+      infoblox.nios_modules.nios_host_record: 
+        name: "{{ vm_hostname }}"
+        ipv4:
+          - address: "{{ ip1 }}"
+          - address: "{{ ip2 }}"
+        ttl: 3600
+        comment: "Created by Ansible Playbook for Kubernetes host"
+        state: present
+        provider: "{{ nios_provider }}"
+
+    - name: "Add secondary interface called eth1"
+      community.general.nmcli:
+        type: ethernet
+        conn_name: 'eth1'
+        ifname: 'eth1'
+        ip4: '{{ item }}/24'
+        mtu: 9000
+        state: present
+      loop:
+        - '{{ ip1 }}'
+        - '{{ ip2 }}'
+
+      # ansible nmcli equavalent
+      # nmcli con add type ethernet con-name eth1 ifname eth1 ip4 {{ ip1 }}/24 ethernet.mtu 9000
+      # nmcli con add type ethernet con-name eth1 ifname eth1 ip4 {{ ip2 }}/24 ethernet.mtu 9000
+
